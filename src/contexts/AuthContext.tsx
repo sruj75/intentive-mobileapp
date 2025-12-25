@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Bug 1 Fix: Memoize redirectUri to prevent recreation on every render
   const redirectUri = useMemo(() => AuthSession.makeRedirectUri({
-    scheme: 'paratherapy',
+    scheme: 'intentive',
   }), []);
 
   const [request, response, promptAsync] = AuthSession.useAuthRequest(

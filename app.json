@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "intentive",
+    "name": "Intentive",
     "slug": "intentive",
-    "scheme": "Intentive",
+    "scheme": "intentive",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,9 +14,11 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "life.intentive.ios"
     },
     "android": {
+      "package": "life.intentive.ios",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -29,6 +31,11 @@
     },
     "plugins": [
       "expo-web-browser"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "37a66266-6230-4ba4-82d3-b4af85abe490"
+      }
+    }
   }
 }

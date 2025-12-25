@@ -25,8 +25,8 @@ export function AuthScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.logo}>☀️</Text>
-        <Text style={styles.title}>Paratherapy</Text>
-        <Text style={styles.subtitle}>Your daily companion</Text>
+        <Text style={styles.title}>Intentive</Text>
+        <Text style={styles.subtitle}>Your All-Day care for ADHD</Text>
       </View>
 
       <View style={styles.content}>
@@ -52,7 +52,7 @@ export function AuthScreen() {
         </TouchableOpacity>
 
         <Text style={styles.footerText}>
-          By signing in, you agree to sync your Google Calendar with Paratherapy
+          By signing in, you agree to sync your Google Calendar with Intentive
         </Text>
       </View>
     </View>
