@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
@@ -7,10 +7,15 @@ import { supabase } from '../lib/supabase';
 WebBrowser.maybeCompleteAuthSession();
 
 const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
+const GOOGLE_REDIRECT_URI = process.env.EXPO_PUBLIC_GOOGLE_REDIRECT_URI;
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001';
 
 if (!GOOGLE_CLIENT_ID) {
   throw new Error('EXPO_PUBLIC_GOOGLE_CLIENT_ID environment variable is required');
+}
+
+if (!GOOGLE_REDIRECT_URI) {
+  throw new Error('EXPO_PUBLIC_GOOGLE_REDIRECT_URI environment variable is required');
 }
 
 const discovery = {
@@ -40,15 +45,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Track which authorization codes we've already processed to prevent duplicate calls
   const processedCodesRef = useRef<Set<string>>(new Set());
 
-  // Bug 1 Fix: Memoize redirectUri to prevent recreation on every render
-  const redirectUri = useMemo(() => AuthSession.makeRedirectUri({
-    scheme: 'intentive',
-  }), []);
-
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
     {
       clientId: GOOGLE_CLIENT_ID,
-      redirectUri,
+      redirectUri: GOOGLE_REDIRECT_URI,
       scopes: [
         'openid',
         'profile',
@@ -66,8 +66,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     discovery
   );
 
-  // Handle OAuth response
-  const handleAuthResponse = useCallback(async (code: string) => {
+  // Handle OAuth response - exchange code for tokens directly on mobile using PKCE
+  const handleAuthResponse = useCallback(async (code: string, codeVerifier: string) => {
     // Prevent processing the same code multiple times
     if (processedCodesRef.current.has(code)) {
       return;
@@ -76,21 +76,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     setAuthLoading(true);
     try {
-      // Step 1: Exchange code for tokens via backend (no userId yet)
-      const tokenResponse = await fetch(`${BACKEND_URL}/api/sync/tokens`, {
+      // Step 1: Exchange code for tokens directly on mobile (PKCE - no client secret needed)
+      const tokenResponse = await fetch(discovery.tokenEndpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: GOOGLE_CLIENT_ID!,
           code,
-          redirectUri,
-        }),
+          code_verifier: codeVerifier,
+          grant_type: 'authorization_code',
+          redirect_uri: GOOGLE_REDIRECT_URI!,
+        }).toString(),
       });
 
       if (!tokenResponse.ok) {
+        const errorData = await tokenResponse.text();
+        console.error('Token exchange error:', errorData);
         throw new Error('Failed to exchange code for tokens');
       }
 
-      const { idToken, googleTokens } = await tokenResponse.json();
+      const tokens = await tokenResponse.json();
+      const { id_token: idToken, access_token: accessToken, refresh_token: refreshToken, expires_in } = tokens;
 
       if (!idToken) {
         throw new Error('No ID token received from Google');
@@ -108,7 +114,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Failed to create Supabase user');
       }
 
-      // Step 3: Store Google tokens for calendar sync
+      // Step 3: Store Google tokens for calendar sync via backend
+      const expiresAt = new Date(Date.now() + (expires_in || 3600) * 1000).toISOString();
       const storeResponse = await fetch(`${BACKEND_URL}/api/sync/tokens`, {
         method: 'POST',
         headers: { 
@@ -117,9 +124,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
         body: JSON.stringify({
           userId: data.user.id,
-          accessToken: googleTokens.accessToken,
-          refreshToken: googleTokens.refreshToken,
-          expiresAt: googleTokens.expiresAt,
+          accessToken,
+          refreshToken,
+          expiresAt,
         }),
       });
 
@@ -134,17 +141,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setAuthLoading(false);
     }
-  }, [redirectUri]);
+  }, []);
 
   // Listen for OAuth response
   useEffect(() => {
-    if (response?.type === 'success') {
-      handleAuthResponse(response.params.code);
+    if (response?.type === 'success' && request?.codeVerifier) {
+      handleAuthResponse(response.params.code, request.codeVerifier);
     } else if (response?.type === 'error' || response?.type === 'dismiss') {
       // Handle cancelled or errored OAuth flow
       setAuthLoading(false);
     }
-  }, [response, handleAuthResponse]);
+  }, [response, request, handleAuthResponse]);
 
   useEffect(() => {
     // Check active session
@@ -164,7 +171,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Bug 2 Fix: Don't check stale response state in finally block
   const signInWithGoogle = async () => {
     setAuthLoading(true);
     try {
