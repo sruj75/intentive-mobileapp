@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase, CalendarEvent } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+
 /**
  * Builds UTC start/end timestamps for a given date.
  * Uses UTC methods to avoid local-timezone day-boundary mismatches.
@@ -91,14 +93,51 @@ export function useEvents(selectedDate: Date) {
   const createEvent = async (event: Partial<CalendarEvent>) => {
     if (!user) return;
 
-    const { error } = await supabase
+    // First insert into Supabase to get the event ID
+    const { data: insertedEvent, error } = await supabase
       .from('events')
       .insert({
         ...event,
         user_id: user.id,
-      });
+      })
+      .select()
+      .single();
 
     if (error) throw error;
+
+    // Then push to Google Calendar via backend API
+    try {
+      const session = await supabase.auth.getSession();
+      const accessToken = session.data.session?.access_token;
+
+      if (accessToken && BACKEND_URL && insertedEvent) {
+        const response = await fetch(`${BACKEND_URL}/api/sync/events`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(insertedEvent),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          // Update the event with the Google Event ID
+          if (result.googleEventId) {
+            await supabase
+              .from('events')
+              .update({ google_event_id: result.googleEventId })
+              .eq('id', insertedEvent.id);
+          }
+        } else {
+          console.error('Failed to push event to Google Calendar');
+        }
+      }
+    } catch (syncError) {
+      console.error('Error syncing event to Google:', syncError);
+      // Don't throw - the event is saved in Supabase, just not synced to Google
+    }
+
     await fetchEvents();
   };
 
@@ -118,6 +157,36 @@ export function useEvents(selectedDate: Date) {
 
   const deleteEvent = async (id: string) => {
     if (!user) return;
+
+    // First get the event to check for google_event_id
+    const { data: eventToDelete } = await supabase
+      .from('events')
+      .select('google_event_id')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single();
+
+    // Delete from Google Calendar via backend API if it has a google_event_id
+    if (eventToDelete?.google_event_id && BACKEND_URL) {
+      try {
+        const session = await supabase.auth.getSession();
+        const accessToken = session.data.session?.access_token;
+
+        if (accessToken) {
+          await fetch(`${BACKEND_URL}/api/sync/events/${id}`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({ googleEventId: eventToDelete.google_event_id }),
+          });
+        }
+      } catch (syncError) {
+        console.error('Error deleting event from Google:', syncError);
+        // Continue with local delete even if Google sync fails
+      }
+    }
 
     // Security: Only delete events owned by the current user
     const { error } = await supabase

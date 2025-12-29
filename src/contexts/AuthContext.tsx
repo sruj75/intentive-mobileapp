@@ -8,7 +8,7 @@ WebBrowser.maybeCompleteAuthSession();
 
 const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
 const GOOGLE_REDIRECT_URI = process.env.EXPO_PUBLIC_GOOGLE_REDIRECT_URI;
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 if (!GOOGLE_CLIENT_ID) {
   throw new Error('EXPO_PUBLIC_GOOGLE_CLIENT_ID environment variable is required');
@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
-  
+
   // Track which authorization codes we've already processed to prevent duplicate calls
   const processedCodesRef = useRef<Set<string>>(new Set());
 
@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     processedCodesRef.current.add(code);
-    
+
     setAuthLoading(true);
     try {
       // Step 1: Exchange code for tokens directly on mobile (PKCE - no client secret needed)
@@ -118,7 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const expiresAt = new Date(Date.now() + (expires_in || 3600) * 1000).toISOString();
       const storeResponse = await fetch(`${BACKEND_URL}/api/sync/tokens`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${data.session?.access_token}`
         },
@@ -192,12 +192,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      session, 
-      loading, 
+    <AuthContext.Provider value={{
+      user,
+      session,
+      loading,
       authLoading,
-      signInWithGoogle, 
+      signInWithGoogle,
       signOut,
       isReady: !!request,
     }}>

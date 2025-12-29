@@ -22,17 +22,18 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     bundleIdentifier: "life.intentive.ios",
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
-      ...(googleIosUrlScheme && {
-        CFBundleURLTypes: [
-          {
-            CFBundleURLSchemes: [googleIosUrlScheme]
-          }
-        ]
-      })
+      CFBundleURLTypes: [
+        {
+          CFBundleURLSchemes: ['intentive']
+        },
+        ...(googleIosUrlScheme ? [{
+          CFBundleURLSchemes: [googleIosUrlScheme]
+        }] : [])
+      ]
     }
   },
   android: {
-    package: "life.intentive.ios",
+    package: "life.intentive.android",
     adaptiveIcon: {
       foregroundImage: "./assets/adaptive-icon.png",
       backgroundColor: "#ffffff"
