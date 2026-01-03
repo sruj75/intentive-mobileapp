@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuthStore } from '../stores/authStore';
 import { useEvents } from '../hooks/useEvents';
 import { CalendarEvent } from '../lib/supabase';
 
@@ -52,7 +52,7 @@ function EventBlock({ event, onPress }: EventBlockProps) {
   const endTime = new Date(event.end_time);
   const startHour = startTime.getHours() + startTime.getMinutes() / 60;
   const duration = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
-  
+
   const colors = ['#F97316', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899'];
   const colorIndex = event.title.length % colors.length;
 
@@ -80,10 +80,11 @@ function EventBlock({ event, onPress }: EventBlockProps) {
 }
 
 export function HomeScreen() {
-  const { user, signOut } = useAuth();
+  const user = useAuthStore((state) => state.user);
+  const signOut = useAuthStore((state) => state.signOut);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const { events, loading, refresh, createEvent, deleteEvent } = useEvents(selectedDate);
-  
+
   const [modalVisible, setModalVisible] = useState(false);
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventStartHour, setNewEventStartHour] = useState(9);
@@ -96,7 +97,7 @@ export function HomeScreen() {
 
     const startTime = new Date(selectedDate);
     startTime.setHours(newEventStartHour, 0, 0, 0);
-    
+
     const endTime = new Date(startTime);
     endTime.setHours(startTime.getHours() + 1);
 
@@ -147,7 +148,7 @@ export function HomeScreen() {
         </View>
         <TouchableOpacity style={styles.profileButton} onPress={signOut}>
           <Text style={styles.profileButtonText}>
-          {user?.email?.charAt(0).toUpperCase() || '?'}
+            {user?.email?.charAt(0).toUpperCase() || '?'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -219,7 +220,7 @@ export function HomeScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>New Event</Text>
-            
+
             <TextInput
               style={styles.modalInput}
               placeholder="Event title"

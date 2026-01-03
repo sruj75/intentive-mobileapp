@@ -1,12 +1,23 @@
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AuthProvider, useAuth } from './src/contexts/AuthContext';
+import { useAuthStore, useAuthSession } from './src/stores/authStore';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
+import { useEffect } from 'react';
 
 function MainApp() {
-  const { user, loading } = useAuth();
+  const user = useAuthStore((state) => state.user);
+  const loading = useAuthStore((state) => state.loading);
+  const initializeAuth = useAuthStore((state) => state.initializeAuth);
+
+  // Initialize auth and OAuth session
+  useAuthSession();
+
+  useEffect(() => {
+    const cleanup = initializeAuth();
+    return cleanup;
+  }, [initializeAuth]);
 
   if (loading) {
     return (
@@ -22,10 +33,8 @@ function MainApp() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <StatusBar style="light" />
-        <MainApp />
-      </AuthProvider>
+      <StatusBar style="light" />
+      <MainApp />
     </SafeAreaProvider>
   );
 }

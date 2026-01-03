@@ -8,10 +8,12 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuthStore } from '../stores/authStore';
 
 export function AuthScreen() {
-  const { signInWithGoogle, authLoading, isReady } = useAuth();
+  const signInWithGoogle = useAuthStore((state) => state.signInWithGoogle);
+  const authLoading = useAuthStore((state) => state.authLoading);
+  const isReady = useAuthStore((state) => state.isReady);
 
   const handleGoogleSignIn = async () => {
     try {

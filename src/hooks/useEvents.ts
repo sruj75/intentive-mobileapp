@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase, CalendarEvent } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuthStore } from '../stores/authStore';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -29,7 +29,7 @@ function getUTCDayBounds(date: Date) {
 }
 
 export function useEvents(selectedDate: Date) {
-  const { user } = useAuth();
+  const user = useAuthStore((state) => state.user);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
